@@ -1,0 +1,13 @@
+{
+  "id": "async-inference-server-005",
+  "pattern_id": "CD1",
+  "severity": "critical",
+  "discovery_phase": "lint",
+  "llm_model": "claude-3.5-sonnet",
+  "trigger": "LLM generated database migration/backfill script with inline credentials for convenience",
+  "symptom": "Plaintext password committed to git history; credential leak risk; secret rotation required across all environments",
+  "bad_code": "# scripts/backfill_memory.py:22\nDB_URL = 'postgresql://service_user:S3cr3tP@ssw0rd!@postgres:5432/memory_db'",
+  "good_code": "import os\n# scripts/backfill_memory.py\nDB_URL = os.environ['DATABASE_URL']  # or use a secrets manager\n# Never hardcode credentials \u2014 not even in scripts",
+  "detection_command": "git log --all -p | grep -E '(password|passwd|secret|token|key)\\s*=\\s*[\"\\'][^\"\\']' | head -20",
+  "notes": "LLMs generating scripts frequently include example credentials 'for convenience'. Even if rotated, the credential lives in git history forever unless rewritten. Use git-filter-repo or BFG to purge."
+}

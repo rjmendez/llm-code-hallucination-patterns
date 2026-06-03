@@ -1,0 +1,13 @@
+{
+  "id": "async-inference-server-002",
+  "pattern_id": "AC4",
+  "severity": "high",
+  "discovery_phase": "integration-test",
+  "llm_model": "claude-3.5-sonnet",
+  "trigger": "LLM generated graceful shutdown logic by fire-and-forgetting a cleanup coroutine inside an exception handler",
+  "symptom": "Shutdown hangs or completes without waiting for cleanup; MQTT client not properly disconnected; resources leaked",
+  "bad_code": "# engine/mqtt_tasks.py\nasync def _handle_error(self, exc):\n    logger.error('MQTT error: %s', exc)\n    asyncio.create_task(self.stop_mqtt())  # line 208 \u2014 fire and forget\n\n# worker.py\nasync def run(self):\n    self.watchdog_task = asyncio.create_task(self._watchdog())  # line 557\n    # watchdog_task never awaited, never cancelled on shutdown",
+  "good_code": "# engine/mqtt_tasks.py\nasync def _handle_error(self, exc):\n    logger.error('MQTT error: %s', exc)\n    await self.stop_mqtt()  # await directly if in async context\n\n# worker.py\nasync def run(self):\n    self.watchdog_task = asyncio.create_task(self._watchdog())\n    try:\n        await self._main_loop()\n    finally:\n        self.watchdog_task.cancel()\n        with suppress(asyncio.CancelledError):\n            await self.watchdog_task",
+  "detection_command": "grep -rn 'create_task' src/ | grep -v 'await\\|gather\\|cancel'",
+  "notes": "Untracked tasks become 'detached' \u2014 they may run past the intended shutdown point, suppress exceptions silently (Python 3.11+ logs 'Task exception was never retrieved'), and prevent clean event loop closure."
+}

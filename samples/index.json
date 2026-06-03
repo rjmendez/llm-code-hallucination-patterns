@@ -41,6 +41,76 @@
       "file": "anonymized-routing-system/003-cascade-wiring-patch.json",
       "severity": "critical",
       "discovery_phase": "unit-test"
+    },
+    {
+      "id": "async-inference-server-001",
+      "pattern_id": "AC1",
+      "file": "async-inference-server/001-ac1-high.json",
+      "severity": "high",
+      "discovery_phase": "lint"
+    },
+    {
+      "id": "async-inference-server-002",
+      "pattern_id": "AC4",
+      "file": "async-inference-server/002-ac4-high.json",
+      "severity": "high",
+      "discovery_phase": "integration-test"
+    },
+    {
+      "id": "async-inference-server-003",
+      "pattern_id": "H6",
+      "file": "async-inference-server/003-h6-medium.json",
+      "severity": "medium",
+      "discovery_phase": "staging"
+    },
+    {
+      "id": "async-inference-server-004",
+      "pattern_id": "CD1",
+      "file": "async-inference-server/004-cd1-critical.json",
+      "severity": "critical",
+      "discovery_phase": "lint"
+    },
+    {
+      "id": "async-inference-server-005",
+      "pattern_id": "CD1",
+      "file": "async-inference-server/005-cd1-critical.json",
+      "severity": "critical",
+      "discovery_phase": "lint"
+    },
+    {
+      "id": "async-inference-server-006",
+      "pattern_id": "SB1",
+      "file": "async-inference-server/006-sb1-high.json",
+      "severity": "high",
+      "discovery_phase": "unit-test"
+    },
+    {
+      "id": "async-inference-server-007",
+      "pattern_id": "TEC1",
+      "file": "async-inference-server/007-tec1-medium.json",
+      "severity": "medium",
+      "discovery_phase": "unit-test"
+    },
+    {
+      "id": "async-inference-server-008",
+      "pattern_id": "SL2",
+      "file": "async-inference-server/008-sl2-medium.json",
+      "severity": "medium",
+      "discovery_phase": "unit-test"
+    },
+    {
+      "id": "async-inference-server-009",
+      "pattern_id": "MF3",
+      "file": "async-inference-server/009-mf3-medium.json",
+      "severity": "medium",
+      "discovery_phase": "unit-test"
+    },
+    {
+      "id": "async-inference-server-010",
+      "pattern_id": "H5",
+      "file": "async-inference-server/010-h5-low.json",
+      "severity": "low",
+      "discovery_phase": "unit-test"
     }
   ]
 }

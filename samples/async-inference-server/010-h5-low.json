@@ -1,0 +1,13 @@
+{
+  "id": "async-inference-server-010",
+  "pattern_id": "H5",
+  "severity": "low",
+  "discovery_phase": "unit-test",
+  "llm_model": "claude-3.5-sonnet",
+  "trigger": "LLM generated score validation assertions using exact equality on floating point computed values",
+  "symptom": "Tests fail non-deterministically across Python versions, platforms, or when model changes produce slightly different scores; assert 0.75 == 0.7500000000001",
+  "bad_code": "# tests/test_scoring.py (pattern ~20 times across test suite)\nassert result['novelty_score'] == 0.75\nassert result['feasibility_score'] == 0.5\nassert combined == novelty * feasibility * impact   # exact float multiply",
+  "good_code": "# tests/test_scoring.py\nimport math\nassert math.isclose(result['novelty_score'], 0.75, rel_tol=1e-6)\nassert 0.0 <= result['feasibility_score'] <= 1.0   # range check often better\nassert math.isclose(combined, novelty * feasibility * impact, rel_tol=1e-9)",
+  "detection_command": "grep -rn 'assert.*score.*==' tests/ | grep -v 'isclose\\|approx'",
+  "notes": "Exact float equality fails on rounding differences between CPU/GPU, different numpy versions, or model output precision. Use math.isclose(), pytest.approx(), or range assertions for computed scores."
+}

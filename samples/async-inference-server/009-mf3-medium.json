@@ -1,0 +1,13 @@
+{
+  "id": "async-inference-server-009",
+  "pattern_id": "MF3",
+  "severity": "medium",
+  "discovery_phase": "unit-test",
+  "llm_model": "claude-3.5-sonnet",
+  "trigger": "LLM generated mock patches using bare module-level paths instead of patching where the symbol is used",
+  "symptom": "Mocks have no effect \u2014 patched object is the original at call site; tests pass or fail for wrong reasons",
+  "bad_code": "# tests/test_worker.py\n@patch('engine.qdrant_client.QdrantClient.upsert')   # wrong \u2014 patches source module\ndef test_store_embedding(mock_upsert):\n    worker.store_embedding(vec, payload)\n    mock_upsert.assert_called_once()\n\n@patch('utils.json.dumps')   # wrong \u2014 patches source, not usage site\ndef test_serialize(mock_dumps):\n    worker.serialize_output(data)\n    mock_dumps.assert_called_once()",
+  "good_code": "# tests/test_worker.py\n@patch('worker.QdrantClient.upsert')    # correct \u2014 patch where it's imported/used\ndef test_store_embedding(mock_upsert):\n    worker.store_embedding(vec, payload)\n    mock_upsert.assert_called_once()\n\n@patch('worker.json.dumps')   # correct \u2014 patch at usage site\ndef test_serialize(mock_dumps):\n    worker.serialize_output(data)\n    mock_dumps.assert_called_once()",
+  "detection_command": "grep -rn '@patch(' tests/ | grep -v 'worker\\.' | grep -v 'engine\\.'",
+  "notes": "LLMs consistently patch the source module instead of the import alias in the module under test. The canonical rule: mock where the name is looked up, not where it is defined. See unittest.mock docs: 'patch where it is used'."
+}

@@ -1,0 +1,13 @@
+{
+  "id": "async-inference-server-001",
+  "pattern_id": "AC1",
+  "severity": "high",
+  "discovery_phase": "lint",
+  "llm_model": "claude-3.5-sonnet",
+  "trigger": "LLM generated async MQTT event loop management using asyncio.get_event_loop() in asyncio task callbacks",
+  "symptom": "DeprecationWarning on Python 3.10+; breaks silently on 3.12 where get_event_loop() raises RuntimeError when no current event loop",
+  "bad_code": "# engine/mqtt_tasks.py\nclass MQTTEngine:\n    async def on_connect(self, client, userdata, flags, rc):\n        loop = asyncio.get_event_loop()           # line 162\n        loop.create_task(self._handle_connect())\n\n    async def on_message(self, client, userdata, msg):\n        loop = asyncio.get_event_loop()           # line 177\n        loop.create_task(self._dispatch(msg))\n\n    async def on_disconnect(self, client, userdata, rc):\n        loop = asyncio.get_event_loop()           # line 188\n        loop.create_task(self._handle_disconnect())",
+  "good_code": "# engine/mqtt_tasks.py\nclass MQTTEngine:\n    async def on_connect(self, client, userdata, flags, rc):\n        asyncio.ensure_future(self._handle_connect())\n\n    async def on_message(self, client, userdata, msg):\n        asyncio.ensure_future(self._dispatch(msg))\n\n    async def on_disconnect(self, client, userdata, rc):\n        asyncio.ensure_future(self._handle_disconnect())",
+  "detection_command": "grep -rn 'get_event_loop()' src/",
+  "notes": "asyncio.get_event_loop() deprecated in 3.10, raises RuntimeError in 3.12 when called outside a running loop. Use asyncio.get_running_loop() or asyncio.ensure_future() inside coroutines."
+}

@@ -1,0 +1,13 @@
+{
+  "id": "async-inference-server-003",
+  "pattern_id": "H6",
+  "severity": "medium",
+  "discovery_phase": "staging",
+  "llm_model": "claude-3.5-sonnet",
+  "trigger": "LLM generated timestamp fields using datetime.utcnow().isoformat() assuming downstream consumers would treat them as UTC",
+  "symptom": "Mnemosyne/Qdrant rejects records or silently stores wrong timestamps; temporal queries return wrong ordering; 'naive datetime' warnings in logs",
+  "bad_code": "# worker.py:144\nrecord = {\n    'id': job_id,\n    'created_at': datetime.utcnow().isoformat(),   # naive \u2014 no tzinfo\n    'content': result_text,\n}",
+  "good_code": "from datetime import datetime, timezone\n# worker.py\nrecord = {\n    'id': job_id,\n    'created_at': datetime.now(timezone.utc).isoformat(),  # timezone-aware\n    'content': result_text,\n}",
+  "detection_command": "grep -rn 'utcnow()' src/",
+  "notes": "datetime.utcnow() returns a naive datetime with no tzinfo. APIs that expect ISO 8601 with Z/+00:00 will either reject it or silently misinterpret. PEP 495 / Python 3.12 deprecates utcnow(). Fix: datetime.now(timezone.utc)."
+}

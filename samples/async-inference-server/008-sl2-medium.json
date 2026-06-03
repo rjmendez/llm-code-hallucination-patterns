@@ -1,0 +1,13 @@
+{
+  "id": "async-inference-server-008",
+  "pattern_id": "SL2",
+  "severity": "medium",
+  "discovery_phase": "unit-test",
+  "llm_model": "claude-3.5-sonnet",
+  "trigger": "LLM added time.sleep() in async test to wait for background task completion",
+  "symptom": "Tests are slow, flaky under load, and don't actually guarantee the async operation completed",
+  "bad_code": "# test_health.py:297\ndef test_background_task_completes():\n    engine.start_background_task()\n    time.sleep(0.5)   # hope it finishes in 500ms\n    assert engine.task_done is True",
+  "good_code": "import pytest, asyncio\n\n@pytest.mark.asyncio\nasync def test_background_task_completes():\n    task = asyncio.create_task(engine.start_background_task())\n    await asyncio.wait_for(task, timeout=5.0)\n    assert engine.task_done is True",
+  "detection_command": "grep -rn 'time.sleep' tests/",
+  "notes": "time.sleep() in async tests blocks the event loop, prevents other coroutines from running, and creates timing-dependent (flaky) tests. Use asyncio.wait_for() or an event/condition variable to wait for completion."
+}

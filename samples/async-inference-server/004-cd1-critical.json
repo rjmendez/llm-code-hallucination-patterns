@@ -1,0 +1,13 @@
+{
+  "id": "async-inference-server-004",
+  "pattern_id": "CD1",
+  "severity": "critical",
+  "discovery_phase": "lint",
+  "llm_model": "claude-3.5-sonnet",
+  "trigger": "LLM generated database connection setup by hardcoding localhost URLs as defaults in service initialization",
+  "symptom": "Service silently connects to wrong host in non-local environments; fails in Docker/k8s with 'connection refused' on localhost",
+  "bad_code": "# worker.py:125,134\nclass Worker:\n    def __init__(self):\n        self.ollama_url = 'http://localhost:11434'   # line 125\n        self.qdrant_url = 'http://localhost:6333'     # line 134",
+  "good_code": "import os\nclass Worker:\n    def __init__(self):\n        self.ollama_url = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')\n        self.qdrant_url = os.environ.get('QDRANT_URL', 'http://localhost:6333')",
+  "detection_command": "grep -rn 'localhost' src/ | grep -v test | grep -v '#'",
+  "notes": "Hardcoded localhost works in dev but breaks in any containerized or multi-host deployment. LLMs frequently generate this as 'sensible defaults' without env-var fallback. Always gate behind os.environ.get()."
+}

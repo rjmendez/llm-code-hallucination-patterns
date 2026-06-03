@@ -1,0 +1,13 @@
+{
+  "id": "async-inference-server-007",
+  "pattern_id": "TEC1",
+  "severity": "medium",
+  "discovery_phase": "unit-test",
+  "llm_model": "claude-3.5-sonnet",
+  "trigger": "LLM generated async test suite using synchronous test runner patterns without using pytest-asyncio",
+  "symptom": "Tests pass locally but silently don't test anything; coroutines return immediately as coroutine objects without being awaited; DeprecationWarning on 3.10",
+  "bad_code": "# tests/test_creative_reasoning.py (pattern repeated x7)\ndef test_run_creative_job():\n    loop = asyncio.get_event_loop()\n    result = loop.run_until_complete(run_creative_job('test prompt'))\n    assert result['status'] == 'complete'\n\ndef test_score_calculation():\n    loop = asyncio.get_event_loop()\n    scores = loop.run_until_complete(calculate_scores(result))\n    assert scores['novelty'] > 0",
+  "good_code": "import pytest\n\n@pytest.mark.asyncio\nasync def test_run_creative_job():\n    result = await run_creative_job('test prompt')\n    assert result['status'] == 'complete'\n\n@pytest.mark.asyncio\nasync def test_score_calculation():\n    scores = await calculate_scores(result)\n    assert scores['novelty'] > 0",
+  "detection_command": "grep -rn 'get_event_loop().run_until_complete\\|run_until_complete' tests/",
+  "notes": "LLMs trained on pre-asyncio-pytest patterns frequently generate get_event_loop().run_until_complete() in tests. With pytest-asyncio and @pytest.mark.asyncio this is unnecessary and fragile. Add pytest-asyncio to deps and use async def tests."
+}

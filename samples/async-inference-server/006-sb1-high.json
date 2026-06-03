@@ -1,0 +1,13 @@
+{
+  "id": "async-inference-server-006",
+  "pattern_id": "SB1",
+  "severity": "high",
+  "discovery_phase": "unit-test",
+  "llm_model": "claude-3.5-sonnet",
+  "trigger": "LLM serialized structured output via json.dumps() without considering non-serializable types in the data model",
+  "symptom": "TypeError: Object of type datetime is not JSON serializable \u2014 crashes at runtime when payload includes dates or custom objects",
+  "bad_code": "# planning_engine.py\ndef serialize_plan(plan: Plan) -> str:\n    return json.dumps(plan.to_dict())  # fails if any field is datetime, UUID, Decimal, etc.\n\n# tool_invoker.py\ndef build_request(tool_call) -> str:\n    return json.dumps({'tool': tool_call.name, 'args': tool_call.args})",
+  "good_code": "from datetime import datetime\nimport uuid\n\nclass SafeEncoder(json.JSONEncoder):\n    def default(self, obj):\n        if isinstance(obj, datetime):\n            return obj.isoformat()\n        if isinstance(obj, uuid.UUID):\n            return str(obj)\n        return super().default(obj)\n\ndef serialize_plan(plan: Plan) -> str:\n    return json.dumps(plan.to_dict(), cls=SafeEncoder)\n\ndef build_request(tool_call) -> str:\n    return json.dumps({'tool': tool_call.name, 'args': tool_call.args}, cls=SafeEncoder)",
+  "detection_command": "grep -rn 'json.dumps(' src/ | grep -v 'default='",
+  "notes": "LLMs treat json.dumps() as universally applicable. Any codebase with datetime, UUID, Decimal, numpy types, or Pydantic models will hit this. Always audit json.dumps() calls for a default= encoder."
+}
