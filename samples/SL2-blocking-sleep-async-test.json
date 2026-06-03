@@ -1,0 +1,28 @@
+{
+  "id": "SL2-001",
+  "pattern": "SL2",
+  "name": "Blocking sleep in async test context",
+  "description": "time.sleep() called in a test file that also uses asyncio \u2014 blocks the event loop, slows the suite, and causes stalls if called from an async def or pytest-asyncio test.",
+  "severity": "HIGH",
+  "language": "python",
+  "context": "pytest test file using asyncio",
+  "bad_example": {
+    "code": "async def test_rate_window_buckets(store):\n    await store.record(event_a)\n    time.sleep(0.01)  # Ensure different timestamp buckets\n    await store.record(event_b)\n    results = await store.get_buckets()\n    assert len(results) == 2",
+    "why_bad": "time.sleep() blocks the event loop inside an async test. asyncio.sleep() (with await) is required here. Also: relying on wall-clock time for timestamp bucketing is brittle and race-prone."
+  },
+  "good_example": {
+    "code": "async def test_rate_window_buckets(store, freezer):\n    await store.record(event_a)\n    freezer.tick(timedelta(milliseconds=10))\n    await store.record(event_b)\n    results = await store.get_buckets()\n    assert len(results) == 2",
+    "why_better": "Use freezegun or time-travel fixtures to advance time without blocking the loop."
+  },
+  "detection": {
+    "grep": "grep -rn 'time\\.sleep' tests/ --include='*.py'",
+    "semgrep_rule": "SL2 in semgrep/python-async-patterns.yaml",
+    "false_positive_note": "time.sleep() is fine in sync test helpers that are not called from async tests. Check whether the function or its callers are async."
+  },
+  "related_patterns": [
+    "SL1",
+    "AC4",
+    "TEC1"
+  ],
+  "source": "deep_think_mcp scan 2026-06-03; found in tests/test_health.py:297, tests/root/test_tool_invoker.py:356, mqtt/tests/test_feedback_store.py:225,445"
+}

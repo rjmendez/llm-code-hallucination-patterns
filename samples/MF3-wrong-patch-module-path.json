@@ -1,0 +1,26 @@
+{
+  "id": "MF3-002",
+  "pattern": "MF3",
+  "name": "mock.patch wrong module path (bare name vs import path)",
+  "description": "pytest mock.patch uses a bare module name (e.g. 'store._db_path') instead of the fully-qualified import path ('deep_think_mcp.store._db_path'). The patch silently targets the wrong object; the real code runs unpatched and tests pass while covering nothing.",
+  "severity": "HIGH",
+  "language": "python",
+  "context": "pytest + unittest.mock.patch",
+  "bad_example": {
+    "code": "@pytest.fixture\ndef isolated_store(tmp_path):\n    with patch('store._db_path', str(tmp_path / 'test.db')):\n        yield Store()\n\ndef test_cache_atomicity(isolated_store):\n    isolated_store.write_batch([item1, item2])\n    assert isolated_store.count() == 2",
+    "why_bad": "patch('store._db_path') patches the module object 'store' which may not be what the test's import resolves to. The production code imports via 'from deep_think_mcp import store' \u2014 so the correct target is 'deep_think_mcp.store._db_path'. With the wrong path, patch() silently applies to the wrong reference and the store uses its real db_path during tests."
+  },
+  "good_example": {
+    "code": "@pytest.fixture\ndef isolated_store(tmp_path):\n    with patch('deep_think_mcp.store._db_path', str(tmp_path / 'test.db')):\n        yield Store()\n\ndef test_cache_atomicity(isolated_store):\n    isolated_store.write_batch([item1, item2])\n    assert isolated_store.count() == 2",
+    "why_better": "Fully-qualified path matches the actual import path of the production code being tested."
+  },
+  "detection": {
+    "grep": "grep -rn \"patch('\" tests/ --include='*.py' | grep -v 'deep_think_mcp\\|mypackage\\|__main__'",
+    "note": "Flag any patch() call whose first argument is a bare dotted path not prefixed with the package name."
+  },
+  "related_patterns": [
+    "H7",
+    "TEC2"
+  ],
+  "source": "deep_think_mcp scan 2026-06-03; found in tests/root/test_cache_integration.py:21,141,232 and test_cache_atomicity.py:25,169,205,236,237"
+}

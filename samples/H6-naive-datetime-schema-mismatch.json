@@ -1,0 +1,26 @@
+{
+  "id": "H6-004",
+  "pattern": "H6",
+  "name": "datetime.utcnow() naive timestamp inserted into tz-aware schema",
+  "description": "datetime.utcnow() is deprecated since Python 3.12 and returns a naive datetime with no tzinfo. When the rest of the codebase uses datetime.now(timezone.utc), inserting a naive timestamp causes subtle schema inconsistencies: ORM parsers fail to compare values, JSON serializers produce different string formats (no +00:00 suffix), and time-windowed queries produce wrong results.",
+  "severity": "HIGH",
+  "language": "python",
+  "context": "database insert / ORM code",
+  "bad_example": {
+    "code": "def backfill_record(cur, mem_id, content, importance, source, bank):\n    now = datetime.utcnow().isoformat()\n    cur.execute(\n        \"INSERT INTO memories (id, content, importance, source, created_at, bank)\"\n        \" VALUES (?, ?, ?, ?, ?, ?)\",\n        (mem_id, content[:4000], importance, source, now, bank)\n    )",
+    "why_bad": "datetime.utcnow() is deprecated (3.12+) AND returns a naive datetime. .isoformat() on a naive datetime produces '2026-06-03T12:00:00' (no tz suffix). The ORM elsewhere uses datetime.now(timezone.utc).isoformat() which produces '2026-06-03T12:00:00+00:00'. Mixed timestamps break ORDER BY, range queries, and any ORM that checks tzinfo before parsing."
+  },
+  "good_example": {
+    "code": "from datetime import datetime, timezone\n\ndef backfill_record(cur, mem_id, content, importance, source, bank):\n    now = datetime.now(timezone.utc).isoformat()\n    cur.execute(\n        \"INSERT INTO memories (id, content, importance, source, created_at, bank)\"\n        \" VALUES (?, ?, ?, ?, ?, ?)\",\n        (mem_id, content[:4000], importance, source, now, bank)\n    )",
+    "why_better": "datetime.now(timezone.utc) is the modern replacement. Produces tz-aware datetime with +00:00 suffix in isoformat(), consistent with the rest of the codebase."
+  },
+  "detection": {
+    "grep": "grep -rn 'datetime.utcnow()' . --include='*.py'",
+    "semgrep_note": "Also detect: import datetime; datetime.datetime.utcnow()"
+  },
+  "related_patterns": [
+    "SB2",
+    "SD2"
+  ],
+  "source": "deep_think_mcp scan 2026-06-03; worker.py:144, scripts/backfill_memory.py:198"
+}

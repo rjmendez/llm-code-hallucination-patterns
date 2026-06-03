@@ -1,0 +1,26 @@
+{
+  "id": "TEC1-001",
+  "pattern": "TEC1",
+  "name": "asyncio.get_event_loop().run_until_complete() in test files (deprecated loop pattern)",
+  "description": "Test file uses asyncio.get_event_loop().run_until_complete() instead of pytest-asyncio. This pattern is deprecated in Python 3.10+ (DeprecationWarning) and raises RuntimeError in 3.12+ when called from a non-main thread or after the default loop is closed. LLMs frequently generate this pattern as a 'safe' fallback that worked in Python 3.6-3.9.",
+  "severity": "HIGH",
+  "language": "python",
+  "context": "pytest async test file",
+  "bad_example": {
+    "code": "def test_creative_reasoning_score():\n    result = asyncio.get_event_loop().run_until_complete(\n        engine.evaluate_novelty(prompt)\n    )\n    assert result[\"novelty_score\"] == 0.5\n\ndef test_feasibility_score():\n    result = asyncio.get_event_loop().run_until_complete(\n        engine.evaluate_feasibility(prompt)\n    )\n    assert result[\"feasibility_score\"] == 0.5",
+    "why_bad": "get_event_loop() is deprecated. In Python 3.12, calling it outside of a running loop raises DeprecationWarning or RuntimeError. The entire test file manually calls run_until_complete() instead of using @pytest.mark.asyncio + await, which also means tests share loop state and can leak coroutines."
+  },
+  "good_example": {
+    "code": "import pytest\n\n@pytest.mark.asyncio\nasync def test_creative_reasoning_score():\n    result = await engine.evaluate_novelty(prompt)\n    assert result[\"novelty_score\"] == pytest.approx(0.5)\n\n@pytest.mark.asyncio\nasync def test_feasibility_score():\n    result = await engine.evaluate_feasibility(prompt)\n    assert result[\"feasibility_score\"] == pytest.approx(0.5)",
+    "why_better": "pytest-asyncio handles event loop lifecycle. pytest.approx() handles float comparisons correctly."
+  },
+  "detection": {
+    "grep": "grep -rn 'get_event_loop().run_until_complete' tests/ --include='*.py'"
+  },
+  "related_patterns": [
+    "H6",
+    "AC1",
+    "SL2"
+  ],
+  "source": "deep_think_mcp scan 2026-06-03; tests/test_creative_reasoning.py:206,214,222,230,243,267,285 (7 occurrences in one file)"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "AC4-003",
+  "pattern": "AC4",
+  "name": "Fire-and-forget create_task in shutdown/signal handler path",
+  "description": "asyncio.create_task() called in a signal handler or shutdown path with no stored handle. If the coroutine raises before completing, the exception is silently dropped after GC collects the task. In a shutdown path this can cause resources to not be released \u2014 connections left open, buffers unflushed, locks not released.",
+  "severity": "HIGH",
+  "language": "python",
+  "context": "asyncio signal handler or shutdown path",
+  "bad_example": {
+    "code": "def _signal_handler(signum, frame):\n    logger.info(\"Received SIGTERM, stopping...\")\n    asyncio.create_task(self.stop_mqtt())  # fire and forget\n\nasync def stop_mqtt(self):\n    await self._client.disconnect()\n    await self._subscriber_task.cancel()\n    self._connected = False",
+    "why_bad": "asyncio.create_task() called from a synchronous signal handler. The task handle is never stored. If stop_mqtt() raises (e.g. disconnect timeout), the exception is swallowed and _connected remains True, causing the next health check to report falsely healthy state. Also: calling create_task() from a sync signal handler requires the event loop to already be running \u2014 if it is not, this silently fails to schedule the coroutine."
+  },
+  "good_example": {
+    "code": "def _signal_handler(signum, frame):\n    logger.info(\"Received SIGTERM, scheduling stop...\")\n    loop = asyncio.get_running_loop()\n    task = loop.create_task(self.stop_mqtt())\n    task.add_done_callback(\n        lambda t: logger.error(\"stop_mqtt failed: %s\", t.exception())\n        if t.exception() else None\n    )\n    self._shutdown_tasks.append(task)",
+    "why_better": "Handle stored, done callback logs failures, task tracked for clean shutdown join."
+  },
+  "detection": {
+    "grep": "grep -n 'create_task' src/ --include='*.py' | grep -v '= asyncio.create_task\\|task = '",
+    "note": "Also grep for create_task inside functions named _signal_handler, on_signal, handle_sigterm"
+  },
+  "related_patterns": [
+    "MF3",
+    "AC1"
+  ],
+  "source": "deep_think_mcp scan 2026-06-03; engine/mqtt_tasks.py:208 (bare fire-and-forget in shutdown path)"
+}
