@@ -1,0 +1,26 @@
+{
+  "id": "SB1",
+  "title": "json.dumps() called on LLM-generated payload without default= encoder",
+  "category": "serialization-bugs",
+  "severity": "HIGH",
+  "language": "python",
+  "tags": ["json", "serialization", "TypeError", "datetime", "uuid", "hallucination-prone"],
+  "description": "LLMs routinely emit json.dumps(payload) on dicts that may contain datetime, UUID, Decimal, dataclass, or Enum values — all of which raise TypeError at runtime. The model generates plausible-looking code that passes static analysis but crashes on real data. Adding default=str or a custom JSONEncoder is the minimal safe fix.",
+  "hallucination_signal": "LLMs don't track what types are actually in the payload dict at the call site. They correctly recall json.dumps() syntax but fail to reason about runtime type constraints, especially when the dict is constructed several frames up the call stack.",
+  "bad_example": "result = {\n    'job_id': uuid.uuid4(),          # UUID — not JSON serializable\n    'started_at': datetime.utcnow(),  # datetime — not JSON serializable\n    'score': Decimal('0.95'),         # Decimal — not JSON serializable\n}\nmessage = json.dumps(result)  # TypeError at runtime",
+  "good_example": "# Option A — safe catch-all (loses type fidelity, acceptable for logging/messaging)\nmessage = json.dumps(result, default=str)\n\n# Option B — explicit encoder (preserves semantics)\nclass _Enc(json.JSONEncoder):\n    def default(self, o):\n        if isinstance(o, (datetime, date)): return o.isoformat()\n        if isinstance(o, UUID): return str(o)\n        if isinstance(o, Decimal): return float(o)\n        return super().default(o)\nmessage = json.dumps(result, cls=_Enc)",
+  "detection_rule": {
+    "pattern": "json\\.dumps\\([^)]+\\)(?!.*default=)",
+    "context": "payload contains or may contain non-primitive types",
+    "message": "json.dumps() without default= will raise TypeError on datetime/UUID/Decimal/dataclass values",
+    "fix": "Add default=str as a safe catch-all, or use a typed JSONEncoder"
+  },
+  "real_world_instance": {
+    "source": "deep_think_mcp worker.py, planning_engine.py, tool_invoker.py",
+    "lines": [212, 237, 536],
+    "confirmed": true
+  },
+  "references": [
+    "https://docs.python.org/3/library/json.html#json.JSONEncoder"
+  ]
+}

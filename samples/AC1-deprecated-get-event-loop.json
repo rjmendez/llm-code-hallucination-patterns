@@ -1,0 +1,27 @@
+{
+  "id": "AC1",
+  "title": "asyncio.get_event_loop() used inside running async context",
+  "category": "async-correctness",
+  "severity": "HIGH",
+  "language": "python",
+  "tags": ["asyncio", "deprecated-api", "python3.10+", "hallucination-prone"],
+  "description": "LLMs frequently emit asyncio.get_event_loop() inside async functions. In Python 3.10+ this emits DeprecationWarning and in 3.12+ raises RuntimeError when there is no current event loop. The correct call inside a running coroutine is asyncio.get_running_loop().",
+  "hallucination_signal": "LLM trained on pre-3.10 code will confidently emit get_event_loop() as the canonical async loop accessor. The deprecation is invisible to models that haven't been updated on Python 3.12 changelog data.",
+  "bad_example": "async def _run_in_executor(self, fn):\n    loop = asyncio.get_event_loop()  # DeprecationWarning 3.10, RuntimeError 3.12\n    return await loop.run_in_executor(None, fn)",
+  "good_example": "async def _run_in_executor(self, fn):\n    loop = asyncio.get_running_loop()  # correct: always raises RuntimeError if not inside running loop\n    return await loop.run_in_executor(None, fn)",
+  "detection_rule": {
+    "pattern": "asyncio\\.get_event_loop\\(\\)",
+    "context": "inside async def",
+    "message": "Use asyncio.get_running_loop() inside coroutines; get_event_loop() is deprecated in 3.10+ and broken in 3.12+",
+    "fix": "Replace with asyncio.get_running_loop()"
+  },
+  "real_world_instance": {
+    "source": "deep_think_mcp engine/mqtt_tasks.py",
+    "lines": [162, 177, 188],
+    "confirmed": true
+  },
+  "references": [
+    "https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.get_event_loop",
+    "https://docs.python.org/3/whatsnew/3.10.html#deprecated"
+  ]
+}

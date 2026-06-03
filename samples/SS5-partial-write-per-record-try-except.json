@@ -1,0 +1,25 @@
+{
+  "id": "SS5",
+  "title": "Per-record try/except inside batch DB loop breaks transaction atomicity",
+  "category": "storage-semantics",
+  "severity": "HIGH",
+  "language": "python",
+  "tags": ["database", "transaction", "atomicity", "sqlite", "sqlalchemy", "hallucination-prone"],
+  "description": "LLMs generate batch DB write loops with per-record try/except that swallow errors and continue, leaving the database in a partially-written state. The model optimizes for 'resilient' code at the expense of data consistency. The correct pattern is a single transaction wrapping the entire batch — all-or-nothing.",
+  "hallucination_signal": "LLMs associate 'robustness' with per-item error handling and 'logging + continue' patterns. They don't model the invariant that partial writes corrupt downstream aggregations, and they rarely consider the transaction boundary as the unit of correctness.",
+  "bad_example": "for record in batch:\n    try:\n        session.execute(insert(Model).values(**record))\n        session.commit()  # commits after every row — partial writes on failure\n    except Exception as e:\n        log.warning('row failed: %s', e)\n        # continue with next record — DB now has subset of batch",
+  "good_example": "try:\n    with session.begin():  # single transaction for entire batch\n        for record in batch:\n            session.execute(insert(Model).values(**record))\n    # committed atomically — either all succeed or none do\nexcept Exception:\n    log.error('batch failed, rolled back %d records', len(batch))\n    raise",
+  "detection_rule": {
+    "pattern": "for .+ in .+:\\s*try:.*commit\\(\\).*except",
+    "context": "loop body contains both .commit() and except: continue",
+    "message": "Per-record commit inside loop breaks atomicity — wrap entire batch in a single transaction",
+    "fix": "Use 'with session.begin():' wrapping the loop body; commit once after all inserts"
+  },
+  "real_world_instance": {
+    "source": "deep_think_mcp worker.py batch write pattern (store.py lines 378-392)",
+    "confirmed": true
+  },
+  "references": [
+    "https://docs.sqlalchemy.org/en/14/orm/session_transaction.html"
+  ]
+}

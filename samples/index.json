@@ -1,116 +1,123 @@
 {
   "samples": [
     {
-      "id": "anon-metrics-pipeline-001",
-      "pattern_id": "H2",
-      "file": "anonymized-metrics-pipeline/001-registry-collision.json",
-      "severity": "high",
-      "discovery_phase": "unit-test"
+      "id": "AC1",
+      "file": "AC1-deprecated-get-event-loop.json",
+      "title": "asyncio.get_event_loop() used inside running async context",
+      "category": "async-correctness",
+      "severity": "HIGH",
+      "tags": [
+        "asyncio",
+        "deprecated-api",
+        "python3.10+",
+        "hallucination-prone"
+      ]
     },
     {
-      "id": "anon-metrics-pipeline-002",
-      "pattern_id": "H1",
-      "file": "anonymized-metrics-pipeline/002-private-attr.json",
-      "severity": "medium",
-      "discovery_phase": "unit-test"
+      "id": "AC4-signal",
+      "file": "AC4-fire-forget-shutdown-signal-handler.json",
+      "title": "Fire-and-forget asyncio.create_task() in signal handler \u2014 task not tracked",
+      "category": "async-correctness",
+      "severity": "HIGH",
+      "tags": [
+        "asyncio",
+        "signal-handler",
+        "fire-and-forget",
+        "resource-leak",
+        "hallucination-prone"
+      ]
     },
     {
-      "id": "anon-metrics-pipeline-003",
-      "pattern_id": "SD3",
-      "file": "anonymized-metrics-pipeline/003-labeled-counter-break.json",
-      "severity": "high",
-      "discovery_phase": "unit-test"
+      "id": "AC4-003",
+      "file": "AC4-fire-forget-task-in-shutdown-path.json",
+      "title": null,
+      "category": null,
+      "severity": "HIGH",
+      "tags": []
     },
     {
-      "id": "anon-routing-system-001",
-      "pattern_id": "SS1",
-      "file": "anonymized-routing-system/001-wrong-type-default.json",
-      "severity": "medium",
-      "discovery_phase": "unit-test"
+      "id": "CD1-003",
+      "file": "CD1-sec-committed-plaintext-password.json",
+      "title": null,
+      "category": null,
+      "severity": "CRITICAL",
+      "tags": []
     },
     {
-      "id": "anon-routing-system-002",
-      "pattern_id": "SL2",
-      "file": "anonymized-routing-system/002-fixture-return-vs-yield.json",
-      "severity": "medium",
-      "discovery_phase": "integration-test"
+      "id": "HF1",
+      "file": "HF1-invented-api-async-localqueue.json",
+      "title": "Model invents plausible-sounding API that does not exist (async.LocalQueue)",
+      "category": "hallucinated-api",
+      "severity": "CRITICAL",
+      "tags": [
+        "hallucination",
+        "invented-api",
+        "asyncio",
+        "code-review",
+        "meta"
+      ]
     },
     {
-      "id": "anon-routing-system-003",
-      "pattern_id": "CP2",
-      "file": "anonymized-routing-system/003-cascade-wiring-patch.json",
-      "severity": "critical",
-      "discovery_phase": "unit-test"
+      "id": "MF3-002",
+      "file": "MF3-wrong-patch-module-path.json",
+      "title": null,
+      "category": null,
+      "severity": "HIGH",
+      "tags": []
     },
     {
-      "id": "async-inference-server-001",
-      "pattern_id": "AC1",
-      "file": "async-inference-server/001-ac1-high.json",
-      "severity": "high",
-      "discovery_phase": "lint"
+      "id": "SB1",
+      "file": "SB1-json-dumps-missing-default-encoder.json",
+      "title": "json.dumps() called on LLM-generated payload without default= encoder",
+      "category": "serialization-bugs",
+      "severity": "HIGH",
+      "tags": [
+        "json",
+        "serialization",
+        "TypeError",
+        "datetime",
+        "uuid",
+        "hallucination-prone"
+      ]
     },
     {
-      "id": "async-inference-server-002",
-      "pattern_id": "AC4",
-      "file": "async-inference-server/002-ac4-high.json",
-      "severity": "high",
-      "discovery_phase": "integration-test"
+      "id": "SL2-001",
+      "file": "SL2-blocking-sleep-async-test.json",
+      "title": null,
+      "category": null,
+      "severity": "HIGH",
+      "tags": []
     },
     {
-      "id": "async-inference-server-003",
-      "pattern_id": "H6",
-      "file": "async-inference-server/003-h6-medium.json",
-      "severity": "medium",
-      "discovery_phase": "staging"
+      "id": "SS5",
+      "file": "SS5-partial-write-per-record-try-except.json",
+      "title": "Per-record try/except inside batch DB loop breaks transaction atomicity",
+      "category": "storage-semantics",
+      "severity": "HIGH",
+      "tags": [
+        "database",
+        "transaction",
+        "atomicity",
+        "sqlite",
+        "sqlalchemy",
+        "hallucination-prone"
+      ]
     },
     {
-      "id": "async-inference-server-004",
-      "pattern_id": "CD1",
-      "file": "async-inference-server/004-cd1-critical.json",
-      "severity": "critical",
-      "discovery_phase": "lint"
-    },
-    {
-      "id": "async-inference-server-005",
-      "pattern_id": "CD1",
-      "file": "async-inference-server/005-cd1-critical.json",
-      "severity": "critical",
-      "discovery_phase": "lint"
-    },
-    {
-      "id": "async-inference-server-006",
-      "pattern_id": "SB1",
-      "file": "async-inference-server/006-sb1-high.json",
-      "severity": "high",
-      "discovery_phase": "unit-test"
-    },
-    {
-      "id": "async-inference-server-007",
-      "pattern_id": "TEC1",
-      "file": "async-inference-server/007-tec1-medium.json",
-      "severity": "medium",
-      "discovery_phase": "unit-test"
-    },
-    {
-      "id": "async-inference-server-008",
-      "pattern_id": "SL2",
-      "file": "async-inference-server/008-sl2-medium.json",
-      "severity": "medium",
-      "discovery_phase": "unit-test"
-    },
-    {
-      "id": "async-inference-server-009",
-      "pattern_id": "MF3",
-      "file": "async-inference-server/009-mf3-medium.json",
-      "severity": "medium",
-      "discovery_phase": "unit-test"
-    },
-    {
-      "id": "async-inference-server-010",
-      "pattern_id": "H5",
-      "file": "async-inference-server/010-h5-low.json",
-      "severity": "low",
-      "discovery_phase": "unit-test"
+      "id": "TEC1-001",
+      "file": "TEC1-get-event-loop-in-tests.json",
+      "title": null,
+      "category": null,
+      "severity": "HIGH",
+      "tags": []
     }
-  ]
+  ],
+  "total": 10,
+  "categories": {
+    "async-correctness": 2,
+    "uncategorized": 5,
+    "hallucinated-api": 1,
+    "serialization-bugs": 1,
+    "storage-semantics": 1
+  }
 }

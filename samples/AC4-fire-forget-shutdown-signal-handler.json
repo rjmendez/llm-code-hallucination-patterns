@@ -1,0 +1,27 @@
+{
+  "id": "AC4-signal",
+  "title": "Fire-and-forget asyncio.create_task() in signal handler — task not tracked",
+  "category": "async-correctness",
+  "severity": "HIGH",
+  "language": "python",
+  "tags": ["asyncio", "signal-handler", "fire-and-forget", "resource-leak", "hallucination-prone"],
+  "description": "LLMs frequently write asyncio.create_task(self.shutdown()) inside a SIGTERM/SIGINT handler without storing the returned Task. The task is immediately eligible for GC, can be silently cancelled by the event loop during teardown, and leaves no handle for await or error propagation. On Python 3.9+ a GC'd task emits 'Task was destroyed but it is pending!' to stderr.",
+  "hallucination_signal": "LLMs pattern-match 'schedule async work from sync context → create_task' without considering that a sync signal handler has no way to await the result and the task reference must be stored to prevent premature collection.",
+  "bad_example": "def handle_signal(signum, frame):\n    if self._running:\n        asyncio.create_task(self.stop())  # reference dropped; task may never complete",
+  "good_example": "def handle_signal(signum, frame):\n    if self._running:\n        task = asyncio.create_task(self.stop())\n        self._tasks.append(task)\n        task.add_done_callback(lambda t: self._tasks.remove(t) if t in self._tasks else None)",
+  "detection_rule": {
+    "pattern": "asyncio\\.create_task\\([^)]+\\)(?!\\s*$|\\s*#)",
+    "context": "result not assigned",
+    "message": "Untracked create_task() — store the Task reference to prevent silent GC cancellation",
+    "fix": "Assign to variable and add to a tracked set/list; register done_callback to clean up"
+  },
+  "real_world_instance": {
+    "source": "deep_think_mcp engine/mqtt_tasks.py",
+    "lines": [208],
+    "confirmed": true
+  },
+  "references": [
+    "https://docs.python.org/3/library/asyncio-task.html#asyncio.create_task",
+    "https://bugs.python.org/issue39941"
+  ]
+}
