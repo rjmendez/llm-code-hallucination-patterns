@@ -1,0 +1,14 @@
+{
+  "id": "anon-metrics-pipeline-001",
+  "pattern_id": "H2",
+  "severity": "high",
+  "discovery_phase": "unit-test",
+  "llm_model": "gpt-4o",
+  "trigger": "LLM was asked to add monitoring to a new pipeline component that already had a metrics module in a sibling file. It created a new Counter with the same name string.",
+  "symptom": "pytest collection fails immediately with 'ValueError: Duplicated timeseries in CollectorRegistry' before any test runs",
+  "bad_code": "# In worker_monitor.py (new file added by LLM):\nfrom prometheus_client import Counter\n\n# Already registered in worker_pipeline.py:\nevents_total = Counter('events_total', 'Total events processed')",
+  "good_code": "# Import and reuse the existing metric:\nfrom worker_pipeline import events_total\n# Do NOT re-register. grep the codebase for 'events_total' before defining.",
+  "detection_command": "grep -rn '\"events_total\"\\|Counter(' --include='*.py' . | grep -v test_ | sed 's/.*\"\\([a-z_]*\\)\".*/\\1/' | sort | uniq -d",
+  "notes": "This pattern is extremely common when LLM is given a single file as context and asked to add monitoring — it doesn't see the existing metrics module.",
+  "contributed_by": "rjmendez"
+}

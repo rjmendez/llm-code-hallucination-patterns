@@ -1,0 +1,46 @@
+{
+  "samples": [
+    {
+      "id": "anon-metrics-pipeline-001",
+      "pattern_id": "H2",
+      "file": "anonymized-metrics-pipeline/001-registry-collision.json",
+      "severity": "high",
+      "discovery_phase": "unit-test"
+    },
+    {
+      "id": "anon-metrics-pipeline-002",
+      "pattern_id": "H1",
+      "file": "anonymized-metrics-pipeline/002-private-attr.json",
+      "severity": "medium",
+      "discovery_phase": "unit-test"
+    },
+    {
+      "id": "anon-metrics-pipeline-003",
+      "pattern_id": "SD3",
+      "file": "anonymized-metrics-pipeline/003-labeled-counter-break.json",
+      "severity": "high",
+      "discovery_phase": "unit-test"
+    },
+    {
+      "id": "anon-routing-system-001",
+      "pattern_id": "SS1",
+      "file": "anonymized-routing-system/001-wrong-type-default.json",
+      "severity": "medium",
+      "discovery_phase": "unit-test"
+    },
+    {
+      "id": "anon-routing-system-002",
+      "pattern_id": "SL2",
+      "file": "anonymized-routing-system/002-fixture-return-vs-yield.json",
+      "severity": "medium",
+      "discovery_phase": "integration-test"
+    },
+    {
+      "id": "anon-routing-system-003",
+      "pattern_id": "CP2",
+      "file": "anonymized-routing-system/003-cascade-wiring-patch.json",
+      "severity": "critical",
+      "discovery_phase": "unit-test"
+    }
+  ]
+}

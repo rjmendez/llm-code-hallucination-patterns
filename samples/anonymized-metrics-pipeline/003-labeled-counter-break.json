@@ -1,0 +1,13 @@
+{
+  "id": "anon-metrics-pipeline-003",
+  "pattern_id": "SD3",
+  "severity": "high",
+  "discovery_phase": "unit-test",
+  "trigger": "LLM added an 'error_type' label to an existing Counter to improve granularity. All existing call sites were not updated.",
+  "symptom": "TypeError: can not use inc() on LabeledCounter — call .labels('...').inc() instead",
+  "bad_code": "# Before (plain Counter, 12 call sites using .inc()):\nerrors_total = Counter('errors_total', 'Total errors')\n\n# LLM changed to labeled counter without updating call sites:\nerrors_total = Counter('errors_total', 'Total errors', ['error_type'])\n\n# All existing 12 call sites now fail:\nerrors_total.inc()   # TypeError",
+  "good_code": "# Step 1: grep ALL call sites before changing the Counter definition\n# grep -rn 'errors_total' --include='*.py' .\n\n# Step 2: Update all call sites atomically:\nerrors_total.labels(error_type='connection').inc()\nerrors_total.labels(error_type='timeout').inc()\n# etc — update ALL 12 sites in the same commit",
+  "detection_command": "grep -rn 'errors_total\\.inc()' --include='*.py' . | wc -l  # count call sites to update",
+  "notes": "CP2 (cascade propagation) co-occurs: every existing .inc() caller is a secondary impact site. Run the Interface Impact Scan from CP2 before adding any labels.",
+  "contributed_by": "rjmendez"
+}

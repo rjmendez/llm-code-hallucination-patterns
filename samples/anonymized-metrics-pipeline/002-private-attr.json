@@ -1,0 +1,14 @@
+{
+  "id": "anon-metrics-pipeline-002",
+  "pattern_id": "H1",
+  "severity": "medium",
+  "discovery_phase": "unit-test",
+  "llm_model": "claude-3.5-sonnet",
+  "trigger": "LLM was asked to write a test that asserts the current value of a prometheus Counter. It found ._value.get() in a Stack Overflow snippet from an older prometheus_client version.",
+  "symptom": "AttributeError: 'Counter' has no attribute '_value' on prometheus_client 0.17+",
+  "bad_code": "# LLM-generated test assertion:\ndef test_counter_increments():\n    metric_obj.inc()\n    assert metric_obj._value.get() == 1   # breaks on prometheus_client 0.17+",
+  "good_code": "# Use a test registry to inspect values cleanly:\nimport prometheus_client\n\n@pytest.fixture(autouse=True)\ndef fresh_registry():\n    prometheus_client.REGISTRY = prometheus_client.CollectorRegistry()\n    yield\n\ndef test_counter_increments():\n    counter = Counter('test_events', 'Test counter')\n    counter.inc()\n    # Use generate_latest to inspect exported value\n    output = prometheus_client.generate_latest(prometheus_client.REGISTRY).decode()\n    assert 'test_events_total 1.0' in output",
+  "detection_command": "grep -rn '\\._value\\.get()\\|\\._value\\.set(' --include='*.py' .",
+  "notes": "prometheus_client changed Counter internals in 0.17. Any code accessing ._value is fragile. The public API for testing is generate_latest() or a test registry.",
+  "contributed_by": "rjmendez"
+}

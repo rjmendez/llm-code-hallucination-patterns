@@ -1,0 +1,13 @@
+{
+  "id": "anon-routing-system-003",
+  "pattern_id": "CP2",
+  "severity": "critical",
+  "discovery_phase": "unit-test",
+  "trigger": "LLM was asked to 'wire up the monitoring component so it actually runs'. Single patch added an import and a call. No Interface Impact Scan was performed. 10 tests failed.",
+  "symptom": "10 tests fail after a 1-line import + 1-line call wiring patch. Failures span 5 different test files with 5 different error types.",
+  "bad_code": "# The patch (correct intent, incomplete execution):\n# Added in orchestrator.py:\nfrom .event_monitor import EventMonitor   # new import\n# ...\nself.monitor = EventMonitor(self.config)   # new wiring line\n\n# Downstream failures:\n# 1. test_orchestrator.py: NameError (EventMonitor not mocked)\n# 2. test_metrics.py: ValueError (Duplicated timeseries) — EventMonitor registers same metric\n# 3. test_pipeline.py: AssertionError (row[2] checks severity, now tests region after column insert)\n# 4. test_routing.py: TypeError (counter requires labels after SD3 change in EventMonitor)\n# 5. test_e2e.py: AssertionError (queue_depth assertion fails — dedup in EventMonitor absorbed test stimuli)",
+  "good_code": "# Interface Impact Scan BEFORE the patch:\n# 1. List changed symbols: EventMonitor (new), self.monitor (new)\n# 2. grep test references: grep -rn 'EventMonitor\\|self.monitor' tests/\n# 3. Check for metric name conflicts: grep -rn 'Counter\\|Gauge' src/event_monitor.py vs existing\n# 4. Check for positional index tests: grep -rn 'row\\[' tests/\n# 5. Check for dedup/filter behavior: grep -rn 'dedup\\|rate.limit\\|filter' src/event_monitor.py\n# Fix all 5 impact sites before committing",
+  "detection_command": "git diff --cached | grep '^+.*import\\|^+.*self\\.' | while read line; do sym=$(echo $line | grep -o '[A-Z][a-zA-Z]*'); grep -rn \"$sym\" tests/ --include='*.py'; done",
+  "notes": "This sample represents the 10-regression cascade documented in the systematic-debugging case study. All 10 regressions are instances of SS1-SS5 and SD1-SD3 — the wiring patch activated 5 independently-broken test assumptions simultaneously.",
+  "contributed_by": "rjmendez"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "anon-routing-system-002",
+  "pattern_id": "SL2",
+  "severity": "medium",
+  "discovery_phase": "integration-test",
+  "llm_model": "claude-3.5-sonnet",
+  "trigger": "LLM wrote a pytest fixture for a client class that patches the underlying network library. Used 'return' inside the 'with mock.patch()' context instead of 'yield'.",
+  "symptom": "Client appears to initialize correctly (fixture setup passes) but the first test call hits the real network backend — connection refused or authentication failure.",
+  "bad_code": "@pytest.fixture\ndef api_client():\n    with mock.patch('myapp.client.requests.Session') as mock_session:\n        mock_session.return_value.post.return_value.status_code = 200\n        client = ApiClient(base_url='http://test-server')\n        return client   # mock exits HERE — context manager closes at return",
+  "good_code": "@pytest.fixture\ndef api_client():\n    with mock.patch('myapp.client.requests.Session') as mock_session:\n        mock_session.return_value.post.return_value.status_code = 200\n        client = ApiClient(base_url='http://test-server')\n        yield client   # mock stays active through the test body",
+  "detection_command": "grep -A20 '@pytest.fixture' tests/ -rn --include='*.py' | grep -B3 'return ' | grep 'with mock\\|with patch'",
+  "notes": "This is one of the most common LLM pytest fixture mistakes. The fix is a single character: return → yield. The symptom is confusing because fixture setup succeeds.",
+  "contributed_by": "rjmendez"
+}

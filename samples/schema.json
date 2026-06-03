@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LLM Hallucination Pattern Sample",
+  "description": "Schema for submitting anonymized real-world instances of LLM code hallucination patterns",
+  "type": "object",
+  "required": ["id", "pattern_id", "severity", "discovery_phase", "trigger", "symptom", "bad_code", "good_code", "detection_command"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+-[0-9]{3}$",
+      "description": "Unique sample ID: <system-name>-<NNN>. System name must be anonymized."
+    },
+    "pattern_id": {
+      "type": "string",
+      "pattern": "^(H|SD|SS|CP|SL|SB|AC|TEC|AT|PB|MF|DC|CD|OG|WG|MC)[0-9a-z]*$",
+      "description": "Pattern category and number, e.g. H1, SD2, AC3"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"],
+      "description": "Impact severity when this pattern occurred in production"
+    },
+    "discovery_phase": {
+      "type": "string",
+      "enum": ["compile", "lint", "unit-test", "integration-test", "staging", "production"],
+      "description": "Where in the SDLC this was discovered"
+    },
+    "llm_model": {
+      "type": "string",
+      "description": "Optional: model that generated the code (e.g. 'gpt-4o', 'claude-3.5-sonnet')"
+    },
+    "trigger": {
+      "type": "string",
+      "description": "One sentence: what LLM action or prompt context caused this pattern"
+    },
+    "symptom": {
+      "type": "string",
+      "description": "What the engineer observed first — the visible symptom, not root cause"
+    },
+    "bad_code": {
+      "type": "string",
+      "description": "Anonymized Python snippet showing the bad pattern. No private names."
+    },
+    "good_code": {
+      "type": "string",
+      "description": "The correct version. Must be fully anonymized."
+    },
+    "detection_command": {
+      "type": "string",
+      "description": "Shell command or ruff rule that would have caught this"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional additional context, cross-references, or caveats"
+    },
+    "contributed_by": {
+      "type": "string",
+      "description": "Optional: GitHub handle or anonymous"
+    }
+  },
+  "additionalProperties": false
+}

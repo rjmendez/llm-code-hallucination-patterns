@@ -1,0 +1,14 @@
+{
+  "id": "anon-routing-system-001",
+  "pattern_id": "SS1",
+  "severity": "medium",
+  "discovery_phase": "unit-test",
+  "llm_model": "gpt-4o",
+  "trigger": "LLM generated a test for a routing function with two required parameters. It passed only the first argument, causing the second (a float score) to default to None — activating the conservative-default branch.",
+  "symptom": "Test always returns True regardless of input. Method appears to always escalate.",
+  "bad_code": "# Function signature:\ndef should_escalate(self, event_history: list[dict], risk_score: float) -> bool:\n    if risk_score is None:\n        return True   # conservative: assume escalation if score missing\n    return any(e['severity'] > 0.8 for e in event_history) and risk_score > 0.7\n\n# LLM-generated test (wrong call):\ndef test_should_not_escalate():\n    history = [{'severity': 0.3}]\n    result = router.should_escalate(history)   # risk_score omitted → defaults to None\n    assert result == False   # FAILS: returns True due to conservative default",
+  "good_code": "# Correct call — all required args:\ndef test_should_not_escalate():\n    history = [{'severity': 0.3}]\n    result = router.should_escalate(history, risk_score=0.2)   # explicit score\n    assert result == False",
+  "detection_command": "python3 -c \"import inspect; from routing_module import Router; r = Router(); print(inspect.signature(r.should_escalate))\"",
+  "notes": "The test 'passed' on the first run because the conservative default was expected to return False. When the signature was verified, the discrepancy was found.",
+  "contributed_by": "rjmendez"
+}
