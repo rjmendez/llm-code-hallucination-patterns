@@ -96,3 +96,106 @@ task.add_done_callback(
 async with asyncio.TaskGroup() as tg:
     tg.create_task(self._flush_worker())
 ```
+
+---
+
+## AC5 — Missing `await` on Coroutine Call (Silent No-Op)
+
+**Mechanism:** An async function call is made without `await`. Python does not raise an
+error — it creates a coroutine object and discards it. The operation silently does nothing.
+LLMs frequently omit `await` when generating calls to functions that were recently
+made async, or when generating callers independently from the callee.
+
+**Symptom:** A function that should write to a DB, send a message, or flush a buffer
+appears to succeed (no exception). The effect never happens. The coroutine warning
+may appear in logs (`RuntimeWarning: coroutine was never awaited`) — but only if
+warnings are not suppressed.
+
+**Concrete instance (anonymized):**
+```python
+# BAD — flush is a coroutine; calling without await creates and discards it
+class EventBuffer:
+    async def flush(self):
+        await self.queue.put_batch(self.pending)
+        self.pending.clear()
+
+    def on_shutdown(self):
+        self.flush()   # ← coroutine object created and discarded, nothing flushed
+```
+
+```python
+# GOOD
+    async def on_shutdown(self):
+        await self.flush()
+```
+
+**Detection:**
+```bash
+# Find async function definitions
+grep -rn "async def " . --include="*.py" | awk -F'def ' '{print $2}' | awk '{print $1}' | sort -u
+# For each async function name, find call sites that lack 'await':
+grep -rn "self\.flush(\|self\.send(\|self\.commit(" . --include="*.py" | grep -v "await "
+# Any call to a known-async method without leading 'await' is AC5
+```
+
+**Fix rule:** Any call to a coroutine must be awaited. Enable `RuntimeWarning` in tests:
+```python
+import warnings
+warnings.filterwarnings("error", category=RuntimeWarning)
+```
+This converts the silent discard into a test failure.
+
+---
+
+## AC6 — Shared Mutable State Across Async Tasks Without Lock
+
+**Mechanism:** Two async tasks share a mutable object (dict, list, counter, cache).
+Since `asyncio` is cooperative, most in-Python mutations are not interrupted — but
+code that does `await` between a read and a write creates a window for another task
+to observe or modify the shared state. LLMs generating tasks independently often
+omit the lock because each task looks safe in isolation.
+
+**Symptom:** Race condition with non-deterministic outcomes: counter undercounts,
+cache has stale values, list has duplicate entries. The bug only appears under
+concurrent load; never in sequential unit tests.
+
+**Concrete instance (anonymized):**
+```python
+# BAD — shared cache read-check-write across an await
+class SessionCache:
+    def __init__(self):
+        self._cache: dict = {}
+
+    async def get_or_create(self, key: str) -> Session:
+        if key not in self._cache:          # Task A checks: key absent
+            session = await db.create(key)  # Task A awaits — Task B runs, also creates
+            self._cache[key] = session      # Task A stores; Task B also stored → two sessions
+        return self._cache[key]
+```
+
+```python
+# GOOD — asyncio.Lock protects the check-and-set
+class SessionCache:
+    def __init__(self):
+        self._cache: dict = {}
+        self._lock = asyncio.Lock()
+
+    async def get_or_create(self, key: str) -> Session:
+        async with self._lock:
+            if key not in self._cache:
+                self._cache[key] = await db.create(key)
+            return self._cache[key]
+```
+
+**Detection:**
+```bash
+# Find class-level mutable fields (dict, list, set)
+grep -rn "self\.\w\+ = {}\|self\.\w\+ = \[\]\|self\.\w\+ = set()" . --include="*.py"
+# For each mutable field: do the methods that mutate it use asyncio.Lock?
+grep -rn "asyncio\.Lock\|threading\.Lock\|async with.*lock" . --include="*.py"
+# Classes with mutable fields but no lock are AC6 candidates
+```
+
+**Fix rule:** Any mutable field on a class shared across async tasks must be protected
+by `asyncio.Lock`. The lock must wrap the entire read-check-write sequence, not just
+the write.
