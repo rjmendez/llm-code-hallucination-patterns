@@ -27,10 +27,13 @@ recognized, detected by tooling, and taught.
 | DC  | Distributed Consistency     | DC1–DC4  | Stale reads, split singletons, lost writes in multi-component systems |
 | CD  | Configuration Drift         | CD1–CD3  | Code correct; config wrong for the deployment environment |
 | OG  | Observability Gap           | OG1–OG4  | Bug exists; evidence was architecturally never recorded |
-| WG  | Wiring Gap                  | WG1      | Component named for integration it never actually calls |
+| WG  | Wiring Gap                  | WG1–WG3  | Component named for integration it never actually calls |
 | MC  | Metric Misconfiguration     | MC1–MC1b | Metric declaration structurally correct but semantically useless |
+| CA  | Context Adaptation          | CA1–CA4  | Code internally correct; wrong for the context it was dropped into |
+| CF  | Context Failure             | CF1–CF4  | Incorrect, stale, or excessive context in; wrong code out |
+| RG  | Reachability Gap            | RG1–RG3  | Unreachable code unreported, or reachable code reported dead |
 
-**Total: 52 documented patterns**
+**Total: 77 documented patterns**
 
 ---
 
