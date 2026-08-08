@@ -47,10 +47,11 @@ def _decorator_names(node: ast.AST) -> set[str]:
     return out
 
 
-def collect(paths: list[pathlib.Path], decorators: set[str]):
+def collect(paths: list[pathlib.Path], decorators: set[str], exported: set[str]):
     defs: dict[str, list[str]] = {}
     subclass_methods: set[str] = set()
     decorated_unknown: set[str] = set()
+    exported_methods: set[str] = set()
     registered: set[str] = set()
     referenced: set[str] = set()
     strings: set[str] = set()
@@ -62,6 +63,13 @@ def collect(paths: list[pathlib.Path], decorators: set[str]):
             continue
 
         for node in ast.walk(tree):
+            # RG4: methods of a PUBLICLY EXPORTED class are reachable from outside
+            # this repo. Reachability within one tree cannot see external consumers.
+            if isinstance(node, ast.ClassDef) and node.name in exported:
+                for child in node.body:
+                    if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        exported_methods.add(child.name)
+
             # RG2: a method of a class WITH bases may override a framework hook.
             if isinstance(node, ast.ClassDef) and node.bases:
                 for child in node.body:
@@ -98,7 +106,31 @@ def collect(paths: list[pathlib.Path], decorators: set[str]):
             elif isinstance(node, ast.Constant) and isinstance(node.value, str):
                 strings.add(node.value.strip())          # possible getattr target
 
-    return defs, subclass_methods, decorated_unknown, registered, referenced, strings
+    return (defs, subclass_methods, decorated_unknown, exported_methods,
+            registered, referenced, strings)
+
+
+def exported_names(paths: list[pathlib.Path]) -> set[str]:
+    """Names a package advertises as public API: __all__ entries and anything
+    re-exported from an __init__.py. External consumers can reach these, so this
+    tree alone cannot prove them unused (RG4)."""
+    out: set[str] = set()
+    for p in paths:
+        try:
+            tree = ast.parse(p.read_text(encoding="utf-8", errors="replace"))
+        except (SyntaxError, OSError):
+            continue
+        is_init = p.name == "__init__.py"
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign) and any(
+                    isinstance(t, ast.Name) and t.id == "__all__" for t in node.targets):
+                for e in getattr(node.value, "elts", []):
+                    if isinstance(e, ast.Constant) and isinstance(e.value, str):
+                        out.add(e.value)
+            if is_init and isinstance(node, (ast.Import, ast.ImportFrom)):
+                for a in node.names:
+                    out.add(a.asname or a.name.split(".")[-1])
+    return out
 
 
 def names_in(paths: list[pathlib.Path]) -> set[str]:
@@ -136,7 +168,9 @@ def main() -> int:
                 if ".venv" not in p.parts and "site-packages" not in p.parts]
 
     src_files = [p for p in py(args.src) if "tests" not in p.parts]
-    defs, subclass_methods, decorated_unknown, registered, referenced, strings = collect(src_files, decorators)
+    exported = exported_names(src_files)
+    (defs, subclass_methods, decorated_unknown, exported_methods,
+     registered, referenced, strings) = collect(src_files, decorators, exported)
     test_names = names_in(py(args.tests)) if args.tests else set()
 
     roots = registered | test_names
@@ -146,17 +180,20 @@ def main() -> int:
             continue
         if name.startswith("__") and name.endswith("__"):
             continue
-        risky = name in subclass_methods or name in decorated_unknown
+        risky = (name in subclass_methods or name in decorated_unknown
+                 or name in exported_methods)
         (uncertain if risky else dead).append((name, locs[0]))
 
     print(f"definitions={len(defs)}  roots: registered={len(registered)} "
           f"tests={len(test_names)}  subclass-methods={len(subclass_methods)} "
-          f"decorated-unknown={len(decorated_unknown)}\n")
+          f"decorated-unknown={len(decorated_unknown)} "
+          f"exported-methods={len(exported_methods)}\n")
     print(f"DEAD ({len(dead)}) -- no reference, no root claims them")
     for name, loc in dead:
         print(f"  {name:44s} {loc}")
-    print(f"\nUNCERTAIN ({len(uncertain)}) -- overrides a base-class hook (RG2) or carries an "
-          f"unrecognised registration decorator (RG1); resolve before deleting")
+    print(f"\nUNCERTAIN ({len(uncertain)}) -- overrides a base-class hook (RG2), carries an "
+          f"unrecognised registration decorator (RG1), or is a method of an exported "
+          f"class reachable by external consumers (RG4); resolve before deleting")
     for name, loc in uncertain:
         print(f"  {name:44s} {loc}")
     return 0

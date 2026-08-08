@@ -18,7 +18,7 @@ recognised is reported **uncertain**, never dead.
 | outcome | meaning |
 |---|---|
 | `dead` | no reference; no root class claims it |
-| `uncertain` | may override a base-class hook (RG2), or carries an unrecognised registration decorator (RG1) |
+| `uncertain` | may override a base-class hook (RG2), carries an unrecognised registration decorator (RG1), or is a method of an exported class (RG4) |
 | *(omitted)* | referenced, or claimed by a root class |
 
 `uncertain` is the point. Printing an unproven symbol as "dead" is what teaches
@@ -32,7 +32,10 @@ list, once appended to, is never re-validated.
    registrar, e.g. `for fn in (a, b, c): registry.add(fn)` (RG1)
 3. **Test references** — every name mentioned anywhere under the test tree
 4. **String literals** — conservative guard against `getattr(obj, "name")` dispatch
-5. **Subclass methods** — any method of a class with bases may override a
+5. **Exported API** — methods of a class in `__all__` or re-exported from an
+   `__init__.py`; external consumers can reach them, so one tree cannot prove
+   them unused (RG4)
+6. **Subclass methods** — any method of a class with bases may override a
    framework hook; demoted to `uncertain` rather than treated as a root (RG2)
 
 ## Validation

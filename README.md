@@ -31,9 +31,9 @@ recognized, detected by tooling, and taught.
 | MC  | Metric Misconfiguration     | MC1–MC1b | Metric declaration structurally correct but semantically useless |
 | CA  | Context Adaptation          | CA1–CA4  | Code internally correct; wrong for the context it was dropped into |
 | CF  | Context Failure             | CF1–CF4  | Incorrect, stale, or excessive context in; wrong code out |
-| RG  | Reachability Gap            | RG1–RG3  | Unreachable code unreported, or reachable code reported dead |
+| RG  | Reachability Gap            | RG1–RG4  | Unreachable code unreported, or reachable code reported dead |
 
-**Total: 77 documented patterns**
+**Total: 78 documented patterns**
 
 ---
 

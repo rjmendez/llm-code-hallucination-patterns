@@ -145,3 +145,51 @@ a detector whose output you routinely suppress is not a detector.
 
 **Cross-references:** RG1, RG2, OG (observability gap — evidence never recorded),
 TEC1 (the check environment biasing the result).
+
+---
+
+## RG4 — Unused Public API Reported Dead
+
+**Mechanism:** A package exports a class or function as public API — via `__all__`,
+or by re-export from `__init__.py` — and documents it as usable standalone. A
+method on that exported class has no caller *inside the repository*. A reachability
+pass scoped to one tree reports it dead. But the tree is not the reachability
+boundary: external consumers can call it, and the analyser cannot see them.
+
+**Symptom:** A minor-version release removes a method nobody in-repo called.
+Downstream integrations break on upgrade. The removing commit looks like routine
+dead-code cleanup and passes every test in the project.
+
+**Concrete instance (anonymized):**
+```python
+# package/__init__.py
+from .engine import VerificationEngine
+__all__ = ["VerificationEngine"]        # documented as usable standalone
+
+# package/engine.py
+class VerificationEngine:
+    @classmethod
+    def in_memory(cls, config=None):     # zero in-repo callers
+        """Convenience constructor backed by an in-memory store."""
+        return cls(InMemoryBackend(), config)
+```
+`in_memory` is unreferenced in this repository and reachable by every consumer of
+the package. Both statements are true at once.
+
+**Detection:**
+```bash
+# Collect the export surface FIRST, then treat methods of exported classes as
+# externally reachable:
+grep -rn "^__all__" --include="*.py" .
+grep -rn "^from \.\| ^import " --include="__init__.py" .
+```
+
+**Fix rule:** Scope the question before answering it. "Unused in this repo" and
+"dead" are different claims, and only the first is decidable from one tree. Report
+methods of exported classes as `uncertain`, never `dead`. To decide them you need a
+signal from outside the tree — downstream dependents, package-registry usage, or an
+explicit stability policy. If a symbol is genuinely public and genuinely unwanted,
+deprecate on a release boundary rather than deleting as cleanup.
+
+**Cross-references:** RG1, RG3 (both concern the analyser's model of reachability
+being narrower than the program's).
