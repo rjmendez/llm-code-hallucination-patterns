@@ -41,18 +41,30 @@ list, once appended to, is never re-validated.
 ## Validation
 
 Measure precision against a known-dead ground-truth set before trusting any
-dead-code tool. On one service (≈520 definitions, a plugin-style server whose
-entry points are registered rather than called):
+dead-code tool. Ground truth here is a commit that removed dead code after an
+independent human review; the measurement runs against the tree as it stood
+*before* that commit — 523 definitions, a plugin-style server whose entry points
+are registered rather than called.
 
 | | result |
 |---|---|
-| general-purpose static pass, no allowlist | 97 findings |
-| same, with the project's allowlist | mostly framework entry points — route handlers and registry-attached functions, i.e. false positives |
-| this script | **2 dead, 2 uncertain, 0 false positives in `dead`** |
+| general-purpose static pass | 23 unused-callable findings — 4 real, **19 false positives** (precision 17%) |
+| — of the false positives: registered entry points (RG1) | 15: 13 registration-decorated handlers, 1 resource, 1 route |
+| — framework overrides on a subclass (RG2) | 2 |
+| — methods of a class in `__all__` (RG4) | 2 |
+| this script | **2 dead — both real, 0 false positives — and 6 uncertain** |
 
-The three symbols independently confirmed dead by a separate review of that
-codebase all appeared in this script's `dead` output before they were removed —
-rediscovering known-dead code is the check that makes it a method rather than a guess.
+The review confirmed three symbols dead and removed them. This script surfaced all
+three: two in `dead`, the third in `uncertain` because it was a method of an
+exported class. That split is the design working, not a miss — everything it
+called dead was dead, and the one it could not prove was routed to a human rather
+than to a delete. Its 6 `uncertain` entries contain 2 of the 3 true positives and
+4 live symbols, which is the correct shape for a bucket that means "decide this."
+
+Rediscovering known-dead code is what makes this a method rather than a guess.
+Refusing to guess on the rest is what keeps it worth running: a tool with 19 false
+positives is one that gets an allowlist (RG3), and an allowlist is how the next
+true positive goes unseen.
 
 During development this script reported a live `@app.custom_route`-decorated
 handler as dead: exactly the RG1 failure it exists to detect. That is why unknown
@@ -60,7 +72,21 @@ decorators now demote to `uncertain`.
 
 ## What this does not find
 
-Code that **is** called and does nothing observable — statically live, semantically
+**Dead symbols masked by a live namesake.** The graph is keyed on bare names, not
+on qualified ones, so a reference to *any* `foo` marks *every* `foo` reachable. In
+the validation codebase a module-level `_enclosing_class_id` in one module was
+dead while an identically-named nested function in another was live and called;
+the live reference covered for the dead definition and it never appeared in the
+output. Name-keying is what makes the script short and dependency-free, and this
+is its price: it fails toward "live", so it under-reports rather than proposing a
+bad delete. Resolving it needs qualified names — module path plus symbol — and an
+import graph to bind references to definitions.
+
+**Mutually-referencing dead code.** Two dead functions that call each other are
+each "referenced", so neither is reported. A single pass cannot see the cycle;
+iterating to a fixed point can.
+
+**Code that is called and does nothing observable** — statically live, semantically
 inert. That is [WG1/WG2](../../patterns/WG-wiring-gap.md), and reachability cannot
 see it. Neither can line coverage: such code is covered and still wrong. Catching it
 needs a behavioural assertion — mutation testing is the practical tool.

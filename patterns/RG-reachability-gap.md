@@ -124,10 +124,16 @@ legacy_export          # added 14 months ago; the caller was deleted 9 months ag
                        # This is now genuinely dead and permanently invisible.
 ```
 
-**Symptom in numbers (anonymized, one service):** the allowlist suppressed 97
-findings. Re-running with correct root enumeration and no allowlist produced 8
-candidates, of which 6 were real — meaning the allowlist was hiding true positives
-inside an overwhelming majority of false ones.
+**Symptom in numbers (anonymized, one service):** a 78-entry allowlist. The
+general-purpose pass reports 135 findings without it and 97 with it — so the list
+suppresses 38 and leaves 97 standing. The CI step that runs it ends in `|| true`,
+so those 97 have never failed a build. Two independent decays compounded: the list
+grew to cover false positives it could never finish covering, and the gate was
+disarmed so nobody had to look.
+
+The allowlist is the visible symptom; `|| true` is why nobody noticed. A
+suppression list and a disarmed gate are the same failure — a check whose output
+no longer changes any decision.
 
 **Detection:**
 ```bash
@@ -141,7 +147,9 @@ reason and be re-validated in CI — an entry that no longer corresponds to a li
 false positive should fail the build as stale, exactly as an unused suppression in a
 type checker does. Better: fix the root enumeration so the entry is unnecessary.
 Measure the tool by precision on a known-dead ground-truth set before trusting it;
-a detector whose output you routinely suppress is not a detector.
+a detector whose output you routinely suppress is not a detector. And check the
+gate can still fail — a step ending in `|| true` reports the same green as a clean
+run, so read the step definition, not the badge.
 
 **Cross-references:** RG1, RG2, OG (observability gap — evidence never recorded),
 TEC1 (the check environment biasing the result).

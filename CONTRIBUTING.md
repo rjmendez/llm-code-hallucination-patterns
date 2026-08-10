@@ -20,6 +20,14 @@ New patterns must:
 - Have a fix rule (not just "don't do this")
 - Not be a duplicate of an existing pattern (check the index table in README)
 
+Update the README taxonomy table in the same commit. That table is what the rule
+above asks you to trust, and it only stays trustworthy if its ID range and total
+track the files. CI checks them; run it yourself first:
+
+```bash
+python3 rules/check_taxonomy.py
+```
+
 File: `patterns/<CATEGORY>-<name>.md`
 
 Template:
