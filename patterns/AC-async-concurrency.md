@@ -199,3 +199,84 @@ grep -rn "asyncio\.Lock\|threading\.Lock\|async with.*lock" . --include="*.py"
 **Fix rule:** Any mutable field on a class shared across async tasks must be protected
 by `asyncio.Lock`. The lock must wrap the entire read-check-write sequence, not just
 the write.
+
+---
+
+## AC7 — Rust tokio::spawn JoinHandle Dropped: Task Cannot Be Aborted on Shutdown
+
+**Mechanism:** `tokio::spawn(async { ... })` returns a `JoinHandle<T>`. If the
+`JoinHandle` is immediately dropped (not stored, not awaited, not passed to a
+`JoinSet`), the task runs until completion with no way to cancel it externally.
+When a shutdown signal arrives, the task continues indefinitely — holding open
+network connections, DB handles, or MQTT sessions — because there is no abort
+path.
+
+LLMs commonly write `tokio::spawn(handler(conn, mqtt.clone()));` as a
+"fire and forget" pattern that looks correct for short tasks but becomes a
+resource leak for long-running connection handlers.
+
+**Symptom:** On SIGTERM or graceful restart, old connection handlers continue
+processing and holding resources. Log shows "shutting down" but TCP connections
+and MQTT sessions stay open. Memory and FD counts don't drop until timeout.
+
+**Concrete instance (anonymized):**
+```rust
+// BAD — JoinHandle dropped immediately; no abort path
+async fn accept_loop(listener: TcpListener, mqtt: MqttClient) {
+    loop {
+        let (conn, _addr) = listener.accept().await.unwrap();
+        let mqtt = mqtt.clone();
+        tokio::spawn(async move {
+            handle_connection(conn, mqtt).await;  // runs forever; cannot be stopped
+        });
+        // JoinHandle dropped here — task is now untracked
+    }
+}
+
+// GOOD — JoinSet tracks all handles; abort_all() on shutdown
+async fn accept_loop(
+    listener: TcpListener,
+    mqtt: MqttClient,
+    cancel: CancellationToken,
+) {
+    let mut set = tokio::task::JoinSet::new();
+    loop {
+        tokio::select! {
+            result = listener.accept() => {
+                let (conn, _) = result.unwrap();
+                let mqtt = mqtt.clone();
+                let cancel = cancel.clone();
+                set.spawn(async move {
+                    tokio::select! {
+                        _ = handle_connection(conn, mqtt) => {}
+                        _ = cancel.cancelled() => {}
+                    }
+                });
+            }
+            _ = cancel.cancelled() => {
+                set.abort_all();
+                break;
+            }
+        }
+    }
+}
+```
+
+**Detection:**
+```bash
+# Find tokio::spawn calls whose return value is not bound:
+grep -rn "tokio::spawn(" --include="*.rs" . | grep -v "let \|= tokio::spawn\|\.spawn("
+
+# More precise: find spawn() not preceded by let/=:
+grep -Prn "(?<!let \w{1,40})(?<!=\s)tokio::spawn\(" --include="*.rs" .
+```
+
+**Fix rule:**
+1. Always bind `tokio::spawn` return values: `let handle = tokio::spawn(...)`.
+2. For connection-per-task patterns, use `JoinSet::spawn` so `abort_all()` can be
+   called from the shutdown path.
+3. Pass a `CancellationToken` into every long-running spawned task and select on it.
+4. In tests, assert that spawned tasks complete (or are aborted) within a deadline
+   after the shutdown signal is sent.
+
+**Cross-references:** AC3 (no graceful shutdown loses in-flight messages), AC4 (exception silently discarded from dropped JoinHandle)
