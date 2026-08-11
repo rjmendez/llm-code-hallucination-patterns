@@ -196,3 +196,72 @@ grep -rn "localhost\|127\.0\.0\.1\|0\.0\.0\.0" . \
 variables or a config file that is not committed. The only acceptable hardcoded
 addresses in non-test code are service discovery names (container names in
 docker-compose, Kubernetes service names) — never IP addresses.
+
+---
+
+## CD7 — Debug/Diagnostic Endpoint Compiled into Release Build (Missing Build-Type Gate)
+
+**Mechanism:** An LLM generates a diagnostic probe, metrics server, or device-enumeration
+command for debugging purposes but omits the build-type guard (`BuildConfig.DEBUG`,
+`#[cfg(debug_assertions)]`, `if __debug__:`, etc.) that prevents it from being active
+in production/release builds. The code ships to real users with full diagnostic
+capability exposed.
+
+**Symptom:** A production app exposes an HTTP endpoint, an MQTT command handler, or a
+background scanning loop that returns detailed internal state (hardware MACs, counters,
+service trees, memory layout) to any caller who knows the endpoint or topic name.
+
+**Concrete instance (anonymized):**
+```java
+// BAD — diagnostic BLE probe reachable from release APK via MQTT command:
+case "device_probe": {
+    JSONObject r = BleProbe.run(context);   // returns MAC, bonded devices, GATT services
+    mqtt.publishAck(r);
+    break;
+}
+
+// GOOD — gate behind debug build type:
+case "device_probe": {
+    if (!BuildConfig.DEBUG) break;          // no-op in release; full probe in debug
+    JSONObject r = BleProbe.run(context);
+    mqtt.publishAck(r);
+    break;
+}
+```
+
+```rust
+// Rust equivalent — gate behind cfg(debug_assertions):
+#[cfg(debug_assertions)]
+fn handle_probe_command(ctx: &Context) -> anyhow::Result<Value> {
+    collect_diagnostic_info(ctx)
+}
+// Without cfg gate, handle_probe_command is reachable in release.
+```
+
+**Detection:**
+```bash
+# Android — find command dispatch cases calling probe/diagnostic classes
+# without a surrounding BuildConfig.DEBUG check:
+grep -n "case \".*probe\"\|case \".*diag\"\|case \".*debug\"" \
+  app/src/main/java/**/*.java | while IFS=: read file linenum rest; do
+    context=$(sed -n "$((linenum-2)),$((linenum+4))p" "$file")
+    echo "$context" | grep -q "BuildConfig.DEBUG" \
+      || echo "UNGUARDED: $file:$linenum"
+done
+
+# Find HTTP/socket servers started unconditionally (not inside an if-DEBUG block):
+grep -rn "new ServerSocket\|HttpServer\|startServer" --include="*.java" . \
+  | grep -v "BuildConfig.DEBUG\|if.*debug"
+```
+
+**Fix rule:**
+1. Any command handler, HTTP/socket endpoint, or background scanner that exposes device
+   internals MUST have a build-type check at the dispatch site.
+2. Prefer removing diagnostic classes from release builds via Proguard/R8 rules or
+   `sourceSets` rather than runtime guards — a missing class cannot be called.
+3. Code review rule: grep for diagnostic class names (`Probe`, `Diag`, `Scanner`, `Dump`)
+   in the command dispatch table and verify each has an explicit build-type gate.
+
+**Cross-references:** OG4 (exposure visible in network traces but not app logs), CD1 (env mismatch between debug and release)
+
+---

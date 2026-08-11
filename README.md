@@ -19,21 +19,23 @@ recognized, detected by tooling, and taught.
 | CP  | Cascade Propagation         | CP1–CP2  | One change has N invisible secondary impact sites |
 | SL  | Scope / Lifetime            | SL1–SL2  | Resource alive at definition, dead at point of use (or vice versa) |
 | SB  | Serialization Boundary      | SB1–SB2  | Valid Python in memory; fails when crossing a wire (JSON, DB, HTTP) |
-| AC  | Async / Concurrency         | AC1–AC6  | Incorrect async patterns, missing circuit breakers, lost exceptions |
-| TEC | Test Env Contamination      | TEC1–TEC2 | The test environment itself biases results |
+| AC  | Async / Concurrency         | AC1–AC7  | Incorrect async patterns, missing circuit breakers, lost exceptions |
+| TEC | Test Env Contamination      | TEC1–TEC3 | The test environment itself biases results |
 | AT  | Agent Tooling               | AT1–AT6  | Failure modes specific to LLM agent tools (patch, execute_code, terminal) |
 | PB  | Parse Boundary              | PB1–PB4  | Validation scattered or deferred past mutation points |
 | MF  | Metastable Failure          | MF1–MF3  | Trigger resolves; sustaining feedback loop keeps system stuck |
 | DC  | Distributed Consistency     | DC1–DC5  | Stale reads, split singletons, lost writes in multi-component systems |
-| CD  | Configuration Drift         | CD1–CD6  | Code correct; config wrong for the deployment environment |
+| CD  | Configuration Drift         | CD1–CD7  | Code correct; config wrong for the deployment environment |
 | OG  | Observability Gap           | OG1–OG4  | Bug exists; evidence was architecturally never recorded |
-| WG  | Wiring Gap                  | WG1–WG3  | Component named for integration it never actually calls |
+| WG  | Wiring Gap                  | WG1–WG5  | Component named for integration it never actually calls |
 | MC  | Metric Misconfiguration     | MC1–MC1b | Metric declaration structurally correct but semantically useless |
 | CA  | Context Adaptation          | CA1–CA4  | Code internally correct; wrong for the context it was dropped into |
 | CF  | Context Failure             | CF1–CF4  | Incorrect, stale, or excessive context in; wrong code out |
 | RG  | Reachability Gap            | RG1–RG4  | Unreachable code unreported, or reachable code reported dead |
+| MP  | Mobile Platform Traps       | MP1–MP3  | Platform runtime silently voids code that is correct at the language level |
+| PS  | Pub/Sub Contract            | PS1–PS3  | Publisher and subscriber both correct; the message never routes between them |
 
-**Total: 78 documented patterns**
+**Total: 89 documented patterns**
 
 ---
 

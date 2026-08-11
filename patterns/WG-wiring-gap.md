@@ -140,3 +140,117 @@ grep -rn '"/health"\|"/ready"\|"/live"\|health_check' . --include="*.py" --inclu
 **Fix rule:** Every health endpoint must perform at least one real probe of each critical
 dependency. If any probe fails, return HTTP 503. Never catch all exceptions and
 return 200 — that defeats the purpose of the health check.
+
+---
+
+## WG4 — Class Fully Implemented but Never Instantiated (Zero Call Sites)
+
+**Mechanism:** An LLM generates a complete, self-contained class — constructor,
+methods, event handlers, protocol logic — that is never referenced from any production
+call site. The class compiles, has no syntax errors, and may even have unit tests
+(testing it in isolation). But no component ever creates an instance, so the feature
+it represents is permanently inactive.
+
+This pattern typically occurs when an LLM implements a "next step" feature in a new
+file without updating the wiring in the orchestrating class. The feature looks done;
+it just never runs.
+
+**Symptom:** A protocol that "should" be active (e.g., peer pairing, model sync,
+federated learning) produces zero events, zero MQTT messages, and zero log lines —
+despite apparently complete implementation.
+
+**Concrete instance (anonymized):**
+```kotlin
+// PeerPairingController.kt — complete 300-line implementation:
+class PeerPairingController(private val mqtt: MqttClient) {
+    fun onPeerDiscovered(peerId: String) { /* ... full haptic + MQTT handshake ... */ }
+    fun onPairingConfirmed(peerId: String) { /* ... model merge trigger ... */ }
+}
+
+// MainActivity.kt — LLM forgot to instantiate it:
+class MainActivity : AppCompatActivity() {
+    private lateinit var mqttClient: MqttClient
+    // PeerPairingController is never created here.
+    // No other file creates it either — zero call sites in the entire project.
+}
+```
+
+**Detection:**
+```bash
+# Find class names with no constructor call sites:
+CLASS="PeerPairingController"
+grep -rn "class $CLASS\b" --include="*.kt" --include="*.java" .  # definition
+grep -rn "\b$CLASS(" --include="*.kt" --include="*.java" .        # instantiation
+# If only the definition line appears, it is never instantiated.
+
+# Scripted sweep — find all class definitions then check for their constructors:
+grep -rh "^class \|^data class \|^object " --include="*.kt" . \
+  | sed 's/class \([A-Za-z]*\).*/\1/' \
+  | while read cls; do
+      count=$(grep -rn "\b${cls}(" --include="*.kt" --include="*.java" . | grep -v "class ${cls}(" | wc -l)
+      echo "$count $cls"
+    done | sort -n | head -20   # lowest counts first — zero means never instantiated
+```
+
+**Fix rule:**
+1. For every new class that represents a live subsystem, immediately add its
+   instantiation to the orchestrating class in the same commit — never in a follow-up.
+2. Write an integration test that creates the class AND verifies at least one of its
+   methods produces a side effect (MQTT publish, log entry, state change).
+
+**Cross-references:** WG1 (no-op backend), OG1 (observability gap — no log entries because the class never runs)
+
+---
+
+---
+
+## WG5 — Interactive UI Element with Empty Handler Body
+
+**Mechanism:** An LLM generates a styled, labeled, interactive UI element (button,
+clickable row, action item) whose tap handler is an empty lambda or a TODO stub.
+The element looks interactive to the user — it may have hover/press states, an icon,
+and a descriptive label — but tapping it does nothing.
+
+**Symptom:** User taps a button. Nothing happens. No log entry. No navigation. No error.
+The button does not visually respond (or responds briefly with a ripple) and then
+returns to its original state. The feature the button represents is permanently dead.
+
+**Concrete instance (anonymized):**
+```kotlin
+// Jetpack Compose — styled button with empty click handler:
+Button(
+    onClick = { /* RETRAIN stub: queued to queen */ },  // empty lambda
+    modifier = Modifier.border(1.dp, MaterialTheme.colors.primary),
+) {
+    Text("RETRAIN → queen")
+}
+
+// Android XML + Java — button configured with no-op action:
+quickActionButton.setText("SYNC");
+quickActionButton.setOnClickListener(v -> {
+    // TODO: wire to SyncManager
+});
+```
+
+**Detection:**
+```bash
+# Compose — find clickable/onClick with empty or stub-only bodies:
+grep -rn "onClick\s*=\s*{" --include="*.kt" . \
+  | grep -E "onClick\s*=\s*\{\s*(//[^\n]*)?\s*\}"
+
+# Android XML + Java — find setOnClickListener with only a comment body:
+grep -A3 "setOnClickListener" --include="*.java" -rn . \
+  | grep -B1 "// TODO\|// stub\|// placeholder"
+
+# React/TypeScript equivalent:
+grep -rn "onClick={() => {}}" --include="*.tsx" --include="*.ts" .
+```
+
+**Fix rule:**
+1. Never merge a UI element whose click handler is an empty lambda or TODO.
+   If the backend isn't ready, either hide the element (`visibility = GONE`) or
+   disable it (`enabled = false`) with a logged reason.
+2. Add a UI test that taps the element and asserts a side effect occurred
+   (navigation event, state change, intent fired).
+
+**Cross-references:** OG3 (observability gap — silent no-op with no log), CD3 (configuration makes the button appear enabled when it shouldn't)
